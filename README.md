@@ -2,6 +2,10 @@
 
 Web scraping API to search products across multiple e-commerce sites with price range filtering.
 
+**⚠️ Important Note: For Study Purposes Only ⚠️**
+
+This project is developed **exclusively for educational and demonstration purposes** of web scraping techniques. It is **not intended for production use**, commercial purposes, or to violate the Terms of Service of any website. The goal is to explore programming and data collection concepts responsibly.
+
 ## 📋 Features
 
 - Search products by name and price range
