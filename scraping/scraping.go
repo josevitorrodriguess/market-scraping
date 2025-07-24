@@ -1,8 +1,17 @@
 package scraping
 
-type Scrapper interface {
-}
+import (
+	"time"
+)
 
+type Scrapper interface {
+	Search(productName string, minPrice, maxPrice float64) ([]Product, error)
+	GetSiteName() string
+	GetRateLimit() time.Duration
+	CanSearchProduct(productName string) bool
+	IsAvailable() bool
+	GetMaxRetries() int
+}
 
 type Product struct {
 	Name      string  `json:"name"`
