@@ -2,26 +2,21 @@ package scraping
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gocolly/colly/v2"
 )
 
 type amazonScrapper struct {
-	client    *http.Client
-	baseURL   string
-	rateLimit time.Duration
+	ScrapperBase
 }
 
 func NewAmazonScrapper() *amazonScrapper {
+	base := NewScrapperBase("https://www.amazon.com.br/s?k=", "Amazon")
 	return &amazonScrapper{
-		client:    &http.Client{Timeout: 30 * time.Second},
-		baseURL:   "https://www.amazon.com.br/s?k=",
-		rateLimit: 2 * time.Second,
+		ScrapperBase: base,
 	}
 }
 
@@ -52,7 +47,7 @@ func (as *amazonScrapper) extractProduct(e *colly.HTMLElement, minPrice, maxPric
 		Rating:    rating,
 		SoldCount: soldCount,
 		Link:      link,
-		Site:      "Amazon",
+		Site:      as.SiteName,
 	}
 }
 
@@ -137,7 +132,9 @@ func (as *amazonScrapper) extractSoldCount(e *colly.HTMLElement) uint {
 // scrapePage faz scraping de uma página específica
 func (as *amazonScrapper) scrapePage(url string, minPrice, maxPrice float64) ([]Product, error) {
 	var products []Product
-
+	// ===== THREAD SAFETY =====
+	// Mutex protege o slice 'products' de acesso concorrente
+	// Necessário porque múltiplas goroutines podem acessar simultaneamente
 	var mu sync.Mutex
 
 	c := colly.NewCollector()
@@ -150,7 +147,7 @@ func (as *amazonScrapper) scrapePage(url string, minPrice, maxPrice float64) ([]
 	// Parallelism: 1 = apenas uma requisição por vez por collector
 	c.Limit(&colly.LimitRule{
 		DomainGlob:  "*amazon.com.br*",
-		RandomDelay: as.rateLimit,
+		RandomDelay: as.RateLimit,
 		Parallelism: 1,
 	})
 
@@ -184,7 +181,7 @@ func (as *amazonScrapper) scrapePage(url string, minPrice, maxPrice float64) ([]
 
 func (as *amazonScrapper) Search(productName string, minPrice, maxPrice float64) ([]Product, error) {
 
-	baseURL := as.baseURL + strings.ReplaceAll(productName, " ", "+")
+	baseURL := as.BaseURL + strings.ReplaceAll(productName, " ", "+")
 	urls := []string{
 		baseURL,             // Página 1
 		baseURL + "&page=2", // Página 2
@@ -217,19 +214,16 @@ func (as *amazonScrapper) Search(productName string, minPrice, maxPrice float64)
 		}(url) // Passa URL como parâmetro para evitar closure issues
 	}
 
-
 	go func() {
 		wg.Wait()      // Bloqueia até todas as goroutines terminarem
 		close(results) // Fecha canal de resultados
 		close(errors)  // Fecha canal de erros
 	}()
 
-
 	var allProducts []Product
 	for products := range results { // Range em canal bloqueia até fechar
 		allProducts = append(allProducts, products...)
 	}
-
 
 	select {
 	case err := <-errors:
